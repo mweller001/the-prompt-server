@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>MIL Ping</title>
+<script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+<style>
+  body { font-family: -apple-system, Segoe UI, Roboto, sans-serif; background:#12140f; color:#e8e8e0;
+         margin:0; padding:0; display:flex; align-items:center; justify-content:center; min-height:100vh; }
+  .card { max-width:340px; width:100%; padding:28px 24px; }
+  h1 { font-size:20px; margin:0 0 6px; }
+  .big { font-size:44px; font-weight:700; margin:14px 0 2px; letter-spacing:-1px; }
+  .lbl { font-size:12px; text-transform:uppercase; letter-spacing:.6px; color:#8a8a80; }
+  .row { margin:10px 0; }
+  .mono { font-family: ui-monospace, Consolas, monospace; font-size:13px; color:#b8b8b0; }
+  .ok { color:#1CAC78; } .err { color:#e0556f; }
+  a { color:#EC5F9A; }
+</style></head>
+<body>
+<div class="card" id="card">
+  <h1>MIL prompt ping</h1>
+  <div id="status" class="mono">logging…</div>
+</div>
+<script>
+// Supabase config — filled to match the daily surface project.
+// (anon key is public by design; same as the app uses.)
+var SUPABASE_URL = "PUT_SUPABASE_URL_HERE";
+var SUPABASE_ANON = "PUT_SUPABASE_ANON_KEY_HERE";
+
+function qs(name){
+  var m = new RegExp("[?&]"+name+"=([^&]+)").exec(location.search);
+  return m ? decodeURIComponent(m[1]) : null;
+}
+function fmt(s){ return s.toFixed(1); }
+
+(async function(){
+  var status = document.getElementById("status");
+  var card = document.getElementById("card");
+  var id = qs("ping");
+  if(!id){ status.innerHTML = '<span class="err">no ping id in URL</span>'; return; }
+
+  var db = supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
+  var openedAt = new Date().toISOString();
+
+  try {
+    // read sent_at, then write opened_at + delta.
+    var got = await db.from("prompt_sends").select("*").eq("id", id).single();
+    if(got.error) throw got.error;
+    var sentAt = got.data.sent_at;
+    var deltaSec = (new Date(openedAt) - new Date(sentAt)) / 1000;
+
+    var upd = await db.from("prompt_sends")
+      .update({ opened_at: openedAt, delta_seconds: deltaSec })
+      .eq("id", id).select();
+    if(upd.error) throw upd.error;
+
+    card.innerHTML =
+      '<h1>logged \u2713</h1>' +
+      '<div class="lbl">round-trip</div>' +
+      '<div class="big ok">' + fmt(deltaSec) + 's</div>' +
+      '<div class="row mono">label: ' + (got.data.label||"") + '</div>' +
+      '<div class="row mono">sent: ' + sentAt + '</div>' +
+      '<div class="row mono">opened: ' + openedAt + '</div>' +
+      '<div class="row"><a href="review.html">\u2192 see all sends</a></div>';  } catch(e){
+    status.innerHTML = '<span class="err">error: ' + (e.message||e) + '</span>';
+  }
+})();
+</script>
+</body></html>
