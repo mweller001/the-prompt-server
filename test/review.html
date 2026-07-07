@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>MIL Ping Review</title>
+<script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+<style>
+  body { font-family: -apple-system, Segoe UI, Roboto, sans-serif; background:#12140f; color:#e8e8e0; margin:0; padding:20px; }
+  h1 { font-size:20px; margin:0 0 4px; }
+  .sub { font-size:12px; color:#8a8a80; margin-bottom:14px; }
+  .stats { display:flex; gap:18px; margin:12px 0 18px; flex-wrap:wrap; }
+  .stat { background:#1c1f18; border:1px solid #2c2f26; border-radius:8px; padding:10px 14px; }
+  .stat .n { font-size:24px; font-weight:700; }
+  .stat .l { font-size:11px; text-transform:uppercase; letter-spacing:.5px; color:#8a8a80; }
+  table { width:100%; border-collapse:collapse; font-size:13px; }
+  th,td { text-align:left; padding:7px 8px; border-bottom:1px solid #23261e; }
+  th { color:#8a8a80; font-weight:600; font-size:11px; text-transform:uppercase; letter-spacing:.4px; }
+  td.mono { font-family: ui-monospace, Consolas, monospace; font-size:12px; color:#b8b8b0; }
+  .d-fast { color:#1CAC78; font-weight:700; } .d-mid { color:#e6c34d; font-weight:700; } .d-slow { color:#e0556f; font-weight:700; }
+  .pending { color:#6a6a60; font-style:italic; }
+  button { background:transparent; border:1px solid #2c2f26; color:#c8c8c0; border-radius:6px; padding:6px 12px; font-size:13px; cursor:pointer; }
+</style></head>
+<body>
+<h1>Prompt sends — transport latency</h1>
+<div class="sub">round-trip = tap time \u2212 send time. In test mode (tap immediately on sound), this \u2248 transport delay. <button onclick="load()">\u21bb refresh</button></div>
+<div class="stats" id="stats"></div>
+<table id="tbl"><thead><tr><th>label</th><th>sent</th><th>delta</th><th>opened</th></tr></thead><tbody id="body"></tbody></table>
+<script>
+var SUPABASE_URL = "PUT_SUPABASE_URL_HERE";
+var SUPABASE_ANON = "PUT_SUPABASE_ANON_KEY_HERE";
+var db = supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
+
+function cls(d){ return d==null ? "" : d<8 ? "d-fast" : d<30 ? "d-mid" : "d-slow"; }
+function shortT(iso){ if(!iso) return "\u2014"; var d=new Date(iso); return d.toLocaleTimeString([], {hour:"2-digit",minute:"2-digit",second:"2-digit"}); }
+
+async function load(){
+  var body = document.getElementById("body");
+  var statsEl = document.getElementById("stats");
+  body.innerHTML = '<tr><td colspan="4" class="pending">loading…</td></tr>';
+  try {
+    var r = await db.from("prompt_sends").select("*").order("sent_at",{ascending:false}).limit(100);
+    if(r.error) throw r.error;
+    var rows = r.data||[];
+    var deltas = rows.map(function(x){return x.delta_seconds;}).filter(function(d){return d!=null;});
+    var n = deltas.length;
+    var avg = n ? (deltas.reduce(function(a,b){return a+b;},0)/n) : null;
+    var min = n ? Math.min.apply(null,deltas) : null;
+    var max = n ? Math.max.apply(null,deltas) : null;
+    statsEl.innerHTML =
+      '<div class="stat"><div class="n">'+rows.length+'</div><div class="l">sends</div></div>' +
+      '<div class="stat"><div class="n">'+(min!=null?min.toFixed(1)+'s':'\u2014')+'</div><div class="l">fastest</div></div>' +
+      '<div class="stat"><div class="n">'+(avg!=null?avg.toFixed(1)+'s':'\u2014')+'</div><div class="l">avg</div></div>' +
+      '<div class="stat"><div class="n">'+(max!=null?max.toFixed(1)+'s':'\u2014')+'</div><div class="l">slowest</div></div>';
+    if(!rows.length){ body.innerHTML='<tr><td colspan="4" class="pending">no sends yet</td></tr>'; return; }
+    body.innerHTML = rows.map(function(x){
+      var d = x.delta_seconds;
+      var dCell = d==null ? '<span class="pending">pending tap</span>' : '<span class="'+cls(d)+'">'+d.toFixed(1)+'s</span>';
+      return '<tr><td>'+(x.label||'')+'</td><td class="mono">'+shortT(x.sent_at)+'</td><td>'+dCell+'</td><td class="mono">'+shortT(x.opened_at)+'</td></tr>';
+    }).join("");
+  } catch(e){
+    body.innerHTML = '<tr><td colspan="4" class="pending">error: '+(e.message||e)+'</td></tr>';
+  }
+}
+load();
+</script>
+</body></html>
