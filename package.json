@@ -1,0 +1,13 @@
+{
+  "name": "mil-prompt-server",
+  "version": "0.0.1",
+  "description": "Stage 0: instrumented email-to-SMS transport test for the daily-surface prompt engine.",
+  "main": "send-test.js",
+  "scripts": {
+    "test-send": "node send-test.js"
+  },
+  "dependencies": {
+    "nodemailer": "^6.9.0",
+    "@supabase/supabase-js": "^2.39.0"
+  }
+}
