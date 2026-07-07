@@ -61,3 +61,47 @@ email-to-SMS is production-viable or a stopgap.
 - Rolling-window cleanup of `prompt_sends` is a later, deferred increment
   (nightly pg_cron / edge function — the correct use of edge functions:
   periodic, latency-insensitive housekeeping).
+
+---
+
+# The prompt engine (prompt-engine.js)
+
+The always-on timing engine. Reads tasks from Supabase, holds precise in-process
+timers, and fires prompts via SMS at the exact second — mirroring the daily
+surface's client firing model (warn stage at fireAt−warnMin, begin stage at fireAt),
+so prompts fire even when the app is closed and the phone is asleep (SMS
+store-and-forward delivers held texts when the phone wakes).
+
+## Run
+```
+node prompt-engine.js
+```
+Leave it running (see "keeping it alive" below). It logs each resync and each fire.
+
+## How it works
+- **Data from Supabase, timing in-process.** Re-reads all tasks every 60s and
+  reconciles timers (new tasks scheduled, snoozed tasks re-armed, done/deleted
+  cancelled). Never polls the DB for timing — the clock is local setTimeout.
+- **Fire-forward-only.** A fire-moment already past when read is never fired, so
+  a restart never replays the day's past prompts.
+- **Fires once per (taskId | fireAt | stage).** Snooze rewrites fireAt in the app
+  → new key → the moment re-arms. Same "whole unit slides" behavior as the client.
+- **Transport = deliverPrompt().** Today: text-only SMS via the email gateway
+  (T-Mobile drops URL-bearing gateway mail, so no link — the task title IS the
+  message). Swap deliverPrompt for local Termux SMS later to regain links + speed.
+
+## Keeping it alive on the phone (Termux)
+Android will try to kill background processes. To keep the engine running:
+```
+termux-wake-lock          # hold a wake-lock so Termux isn't doze-killed
+node prompt-engine.js     # (or run under a keep-alive; see below)
+```
+Also exempt Termux from battery optimization in Android settings. The real
+overnight-survival test: set a task to fire at 3am, leave the phone idle from
+evening, confirm the SMS arrives. If Android kills it despite the wake-lock,
+that's when the Win10 box becomes the fallback host.
+
+## Test-send tools (Stage 0, transport characterization — already done)
+- `send-test.js` — instrumented single send with ping link (measures round-trip).
+- `plaintest.js` / `linktest.js` — bare deliverability probes.
+- Finding: T-Mobile email-to-SMS = text-only, ~8s. Links need local SMS (pending SIM).
