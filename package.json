@@ -1,6 +1,6 @@
 {
   "name": "mil-prompt-server",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Prompt engine for the daily-surface: always-on server timing engine that fires task prompts via SMS. Stage 0 transport test included.",
   "main": "send-test.js",
   "scripts": {

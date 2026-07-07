@@ -1,5 +1,6 @@
 // ============================================================
-//  send-test.js — Stage 0 instrumented transport test.
+//  send-test.js  —  v0.1.0  —  Stage 0 instrumented transport test.
+//  (Stage-0 tooling; version dates this file's last real change.)
 //  One run = one prompt fired:
 //    1. insert a prompt_sends row stamped sent_at = now
 //    2. email-to-SMS a short message + a ping link carrying that row id

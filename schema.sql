@@ -1,3 +1,4 @@
+-- The Prompt Server — schema.sql — v0.1.0 (version dates last real change)
 -- prompt_sends: Stage-0 transport instrumentation.
 -- One row per fired prompt. delta_seconds = opened_at - sent_at (round-trip latency).
 -- Run this in the Supabase SQL editor.

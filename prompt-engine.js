@@ -1,5 +1,6 @@
 // ============================================================
-//  prompt-engine.js — the always-on server timing engine.
+//  prompt-engine.js  —  v0.1.1
+//  (version lives here since this file has no in-app display; keep in sync with package.json) — the always-on server timing engine.
 //
 //  Reads tasks from Supabase (DATA), holds its own precise in-process
 //  timers (the CLOCK — never polls the DB for timing), and fires prompts
@@ -67,19 +68,21 @@ function minusMinutes(date, mins) {
 
 // ---- the transport seam ------------------------------------------------
 // Today: text-only SMS via email gateway. NO link (T-Mobile drops URL-bearing
-// gateway mail). The task title IS the message. Swap this body for a local-SMS
-// send later to regain links + speed.
+// gateway mail). The task title IS the message. Language mirrors the app: the
+// warn stage is "Prepare", the begin stage is "Perform". Subject-only with an
+// EMPTY body — the gateway otherwise delivers subject AND body joined by "/",
+// duplicating the text; subject-only sends the message once. Swap this body for
+// a local-SMS send later to regain links + speed.
 async function deliverPrompt(task, stage) {
-  const prefix = stage === "warn"
-    ? "MIL soon: " + task.title + (task.warnMin ? " (in " + task.warnMin + " min)" : "")
-    : "MIL now: " + task.title;
-  const msg = prefix;
+  const msg = stage === "warn"
+    ? "MIL Prepare: " + task.title + (task.warnMin ? " (in " + task.warnMin + " min)" : "")
+    : "MIL Perform: " + task.title;
   try {
     await mailer.sendMail({
       from: cfg.gmailUser,
       to: cfg.smsTo,
       subject: msg,
-      text: msg
+      text: ""            // empty body: message rides in the subject only, no "/" duplication
     });
     log("FIRED [" + stage + "] " + task.title);
   } catch (e) {
